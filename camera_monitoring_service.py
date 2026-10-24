@@ -330,46 +330,92 @@ class DriverMonitoringService:
             except Exception as e:
                 print(f"[DriverMonitoringService] CallMeBot API notice: {e}")
 
-        # Automated WhatsApp Browser Navigation & Send (Zero screen clicks, zero coordinate guessing)
+        # Automated WhatsApp Browser Navigation & Automatic Send
         import webbrowser
         try:
             print(f"[DriverMonitoringService] Opening WhatsApp Web for {contact_name} (+{clean_phone})...")
             webbrowser.open(whatsapp_web_url)
 
-            # Wait for WhatsApp Web to connect and load the conversation with the pre-filled text
-            print("[DriverMonitoringService] Waiting for WhatsApp Web to load the message into the chat...")
-            time.sleep(12)
+            # Function to force the browser to active foreground on Windows
+            def _force_browser_foreground():
+                if sys.platform == "win32":
+                    try:
+                        import ctypes
+                        user32 = ctypes.windll.user32
+                        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+                        def _enum_cb(hwnd, _lparam):
+                            if user32.IsWindowVisible(hwnd):
+                                length = user32.GetWindowTextLengthW(hwnd)
+                                if length > 0:
+                                    buff = ctypes.create_unicode_buffer(length + 1)
+                                    user32.GetWindowTextW(hwnd, buff, length + 1)
+                                    title = buff.value.lower()
+                                    if any(k in title for k in ["whatsapp", "chrome", "edge", "brave", "firefox", "opera"]):
+                                        user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
+                                        user32.keybd_event(0x12, 0, 0, 0)  # Alt down
+                                        user32.keybd_event(0x12, 0, 2, 0)  # Alt up
+                                        user32.SetForegroundWindow(hwnd)
+                                        return False
+                            return True
+                        user32.EnumWindows(WNDENUMPROC(_enum_cb), 0)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        import pygetwindow as gw
+                        for win in gw.getAllWindows():
+                            t = win.title.lower()
+                            if any(k in t for k in ["whatsapp", "chrome", "edge", "brave"]):
+                                win.activate()
+                                break
+                    except Exception:
+                        pass
 
-            # Activate the browser window cleanly without moving or clicking the mouse
-            try:
-                import pygetwindow as gw
-                for win in gw.getAllWindows():
-                    t = win.title.lower()
-                    if "whatsapp" in t or "chrome" in t or "edge" in t or "brave" in t:
-                        win.activate()
-                        break
-            except Exception:
-                pass
-
-            time.sleep(1.0)
-
-            # DO NOT click any coordinates or guess where the Send button is.
-            # The text is already typed in the input box and focused.
-            # Trigger Send directly via keyboard:
+            # Import automation tools
             import pyautogui
+            pyautogui.FAILSAFE = False
+            screen_w, screen_h = pyautogui.size()
 
-            print("[DriverMonitoringService] Automatically sending message via Enter...")
-            pyautogui.keyDown("enter")
-            time.sleep(0.2)
-            pyautogui.keyUp("enter")
-            time.sleep(1.0)
+            # Phased automatic send:
+            # WhatsApp Web requires 8-15 seconds to connect and populate the chat.
+            # We attempt multi-round automated dispatches so whether connection is fast or slow,
+            # the message is guaranteed to send without requiring human click.
+            print("[DriverMonitoringService] Waiting for WhatsApp Web to load conversation...")
+            time.sleep(10)
 
-            # Also send Ctrl+Enter (multiline send in WhatsApp)
-            pyautogui.hotkey("ctrl", "enter")
-            time.sleep(0.5)
+            for attempt in range(1, 4):
+                print(f"[DriverMonitoringService] Automatic send attempt {attempt}/3...")
+                _force_browser_foreground()
+                time.sleep(0.5)
 
-            # Final Enter tap
-            pyautogui.press("enter")
+                # 1. Click center to ensure active window input focus
+                pyautogui.click(screen_w // 2, screen_h // 2)
+                time.sleep(0.3)
+
+                # 2. Click message text input bar (bottom-center area) to ensure cursor is inside the box
+                input_x = int(screen_w * 0.65)
+                input_y = screen_h - 55
+                pyautogui.click(input_x, input_y)
+                time.sleep(0.3)
+
+                # 3. Press Enter key
+                pyautogui.press("enter")
+                time.sleep(0.3)
+
+                # 4. In case WhatsApp uses multiline or requires Ctrl+Enter
+                pyautogui.hotkey("ctrl", "enter")
+                time.sleep(0.3)
+
+                # 5. Direct click on WhatsApp Web's Send button (green paper-airplane icon at bottom right)
+                send_button_x = screen_w - 55
+                send_button_y = screen_h - 55
+                pyautogui.click(send_button_x, send_button_y)
+                time.sleep(0.2)
+                pyautogui.press("enter")
+
+                # If this wasn't the last attempt, wait briefly before next pulse
+                if attempt < 3:
+                    time.sleep(3.5)
 
             print("[DriverMonitoringService] WhatsApp emergency alert automatically sent!")
         except Exception as e:
