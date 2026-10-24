@@ -1,0 +1,105 @@
+name: CI — AI Driver Monitoring System
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: "Python Tests (${{ matrix.os }} / Python ${{ matrix.python-version }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false          # Run all three even if one fails, so you see all errors
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      # ── 1. Checkout ───────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ─────────────────────────────────────────────────
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: requirements-ci.txt
+
+      # ── 3. Install CI dependencies ────────────────────────────────────────
+      - name: Install CI dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      # ── 4. Verify critical imports (real check — not just "import worked") ─
+      - name: Verify core module imports
+        run: |
+          python -c "from backend.app.models.schemas import DriverStatus, SystemState, VehicleMode, SimulationMode; print('schemas OK')"
+          python -c "from backend.app.services.state_manager import state_manager; s = state_manager.get_state(); assert s.vehicle_speed == 60.0, f'Bad default speed: {s.vehicle_speed}'; print('state_manager OK')"
+          python -c "from modules.driver_monitoring.driver_monitor import DriverMonitor; print('driver_monitor OK')"
+          python -c "from modules.gps.gps_service import GpsService; print('gps_service OK')"
+          python -c "from modules.hospital.hospital_finder import HospitalFinder; print('hospital_finder OK')"
+
+      # ── 5. Run test suite ─────────────────────────────────────────────────
+      # -v           : verbose output so every test name is visible in the log
+      # --tb=short   : compact tracebacks on failure
+      # --strict-markers : fail if unknown pytest markers are used
+      # -p no:warnings: prevent warning-swallowed failures
+      # Exit code is propagated — any failure fails the job (no silent pass)
+      - name: Run pytest
+        run: |
+          python -m pytest tests/ -v --tb=short --strict-markers -p no:warnings --junit-xml=pytest-results-${{ matrix.os }}-py${{ matrix.python-version }}.xml
+        shell: bash
+
+      # ── 6. Upload JUnit XML so failures are visible in GitHub UI ─────────
+      - name: Upload test results
+        if: always()          # Upload even on failure so you can inspect results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: pytest-results-*.xml
+          retention-days: 14
+
+  # ── Lint: catch import errors and obvious syntax issues ─────────────────
+  lint:
+    name: "Lint (ubuntu-latest / Python 3.12)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install dependencies + linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+          pip install pyflakes
+
+      # pyflakes catches undefined names, unused imports, syntax errors
+      - name: Run pyflakes on source
+        run: |
+          python -m pyflakes backend/app/models/schemas.py
+          python -m pyflakes backend/app/services/state_manager.py
+          python -m pyflakes backend/app/config.py
+          python -m pyflakes modules/driver_monitoring/driver_monitor.py
+          python -m pyflakes modules/gps/gps_service.py
+          python -m pyflakes modules/hospital/hospital_finder.py
+
+      # Compile-check every Python source file (catches SyntaxErrors everywhere)
+      - name: Syntax-check all Python files
+        run: |
+          find . -name "*.py" \
+            -not -path "./.venv/*" \
+            -not -path "./.git/*" \
+            -not -path "./__pycache__/*" \
+            | xargs python -m py_compile
+          echo "All Python files compiled successfully."

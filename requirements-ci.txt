@@ -1,0 +1,10 @@
+# CI-only requirements — only packages that the test suite actually imports.
+# Excludes mediapipe, opencv-python, pywhatkit which need GUI/camera hardware.
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+requests>=2.31.0
+numpy>=1.26.0
+pydantic>=2.6.0
+pytest>=8.0.0
+websockets>=12.0
+python-multipart>=0.0.9

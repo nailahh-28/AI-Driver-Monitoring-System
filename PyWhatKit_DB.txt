@@ -1,0 +1,15 @@
+Date: 24/10/2026
+Time: 11:26
+Phone Number: +919876543210
+Message: 🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety prompt.The vehicle has safely stopped and initiated Autonomous Emergency Mode.📍 *Live Vehicle GPS Location:*https://maps.google.com/?q=12.971820,77.599275🗺️ Coordinates: `12.971820, 77.599275`🏥 *Destination Hospital:* Nearest Emergency Medical Center🛣️ *Distance to Hospital:* Calculating...⏱️ *Estimated ETA:* Pending📞 *Emergency Contact:* Family Emergency ContactPlease call the driver or dispatch emergency personnel immediately!
+--------------------
+Date: 24/10/2026
+Time: 11:36
+Phone Number: +919876543210
+Message: 🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety prompt.The vehicle has safely stopped and initiated Autonomous Emergency Mode.📍 *Live Vehicle GPS Location:*https://maps.google.com/?q=12.971820,77.597483🗺️ Coordinates: `12.971820, 77.597483`🏥 *Destination Hospital:* Nearest Emergency Medical Center🛣️ *Distance to Hospital:* Calculating...⏱️ *Estimated ETA:* Pending📞 *Emergency Contact:* Family Emergency ContactPlease call the driver or dispatch emergency personnel immediately!
+--------------------
+Date: 24/10/2026
+Time: 11:44
+Phone Number: +918073662914
+Message: 🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety prompt.The vehicle has safely stopped and initiated Autonomous Emergency Mode.📍 *Live Vehicle GPS Location:*https://maps.google.com/?q=12.971820,77.597923🗺️ Coordinates: `12.971820, 77.597923`🏥 *Destination Hospital:* Nearest Emergency Medical Center🛣️ *Distance to Hospital:* Calculating...⏱️ *Estimated ETA:* Pending📞 *Emergency Contact:* mommyPlease call the driver or dispatch emergency personnel immediately!
+--------------------
