@@ -19,6 +19,15 @@ import time
 import urllib.parse
 from typing import Optional, Tuple
 
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import cv2
 import requests
 
@@ -28,11 +37,8 @@ try:
 except ImportError:
     winsound = None
 
-# WhatsApp Web dispatching
-try:
-    import pywhatkit
-except ImportError:
-    pywhatkit = None
+# WhatsApp Emergency Alert Service
+from modules.alert.whatsapp_alert import emergency_alert_service
 
 # Project imports
 from backend.app.models.schemas import DriverStatus, VehicleMode
@@ -153,6 +159,7 @@ class DriverMonitoringService:
             if clean_phone.isdigit() and len(clean_phone) == 10:
                 clean_phone = f"+91{clean_phone}"
             self.contact_phone = clean_phone
+            emergency_alert_service.configure_contact(self.contact_name, self.contact_phone)
             print(f"[DriverMonitoringService] Emergency contact updated: {self.contact_name} ({self.contact_phone})")
 
     @staticmethod
@@ -280,146 +287,7 @@ class DriverMonitoringService:
 
     def _send_whatsapp_alert_when_unresponsive(self):
         """Sends WhatsApp emergency alert specifically when driver does NOT respond to the countdown."""
-        state = state_manager.get_state()
-        lat = state.gps_latitude
-        lon = state.gps_longitude
-        hospital_name = state.hospital_name or "Nearest Emergency Medical Center"
-        hospital_dist = f"{state.hospital_distance:.2f} km" if state.hospital_distance else "Calculating..."
-        route_eta = f"{state.route_eta:.1f} mins" if state.route_eta else "Pending"
-
-        location_url = f"https://maps.google.com/?q={lat:.6f},{lon:.6f}" if lat and lon else "GPS Active"
-        phone = self.contact_phone
-        contact_name = self.contact_name
-
-        message = (
-            "🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨\n\n"
-            "⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety prompt.\n"
-            "The vehicle has safely stopped and initiated Autonomous Emergency Mode.\n\n"
-            f"📍 *Live Vehicle GPS Location:*\n{location_url}\n"
-            f"🗺️ Coordinates: `{lat:.6f}, {lon:.6f}`\n\n"
-            f"🏥 *Destination Hospital:* {hospital_name}\n"
-            f"🛣️ *Distance to Hospital:* {hospital_dist}\n"
-            f"⏱️ *Estimated ETA:* {route_eta}\n\n"
-            f"📞 *Emergency Contact:* {contact_name}\n"
-            "Please call the driver or dispatch emergency personnel immediately!"
-        )
-
-        print("\n" + "=" * 70)
-        print("🚨 DRIVER TIMEOUT — DISPATCHING EMERGENCY WHATSAPP ALERT")
-        print(f"Recipient: {contact_name} ({phone})")
-        print(f"Location:  {location_url}")
-        print(f"Hospital:  {hospital_name} ({hospital_dist})")
-        print("=" * 70)
-
-        # Direct WhatsApp API link for instant click or browser trigger
-        encoded_msg = urllib.parse.quote(message)
-        clean_phone = "".join(filter(str.isdigit, phone))
-        whatsapp_web_url = f"https://web.whatsapp.com/send?phone={clean_phone}&text={encoded_msg}"
-        print(f"🔗 Direct WhatsApp Link: {whatsapp_web_url}\n")
-
-        # Optional Free Direct API: CallMeBot (sends 100% automatically in background over HTTP if API key is provided)
-        callmebot_key = os.getenv("CALLMEBOT_API_KEY", "")
-        if callmebot_key:
-            try:
-                print(f"[DriverMonitoringService] Sending via CallMeBot API to +{clean_phone}...")
-                api_url = f"https://api.callmebot.com/whatsapp.php?phone=+{clean_phone}&text={encoded_msg}&apikey={callmebot_key}"
-                resp = requests.get(api_url, timeout=10)
-                if resp.status_code == 200:
-                    print("[DriverMonitoringService] WhatsApp alert delivered automatically via API!")
-                    return
-            except Exception as e:
-                print(f"[DriverMonitoringService] CallMeBot API notice: {e}")
-
-        # Automated WhatsApp Browser Navigation & Automatic Send
-        import webbrowser
-        try:
-            print(f"[DriverMonitoringService] Opening WhatsApp Web for {contact_name} (+{clean_phone})...")
-            webbrowser.open(whatsapp_web_url)
-
-            # Function to force the browser to active foreground on Windows
-            def _force_browser_foreground():
-                if sys.platform == "win32":
-                    try:
-                        import ctypes
-                        user32 = ctypes.windll.user32
-                        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-                        def _enum_cb(hwnd, _lparam):
-                            if user32.IsWindowVisible(hwnd):
-                                length = user32.GetWindowTextLengthW(hwnd)
-                                if length > 0:
-                                    buff = ctypes.create_unicode_buffer(length + 1)
-                                    user32.GetWindowTextW(hwnd, buff, length + 1)
-                                    title = buff.value.lower()
-                                    if any(k in title for k in ["whatsapp", "chrome", "edge", "brave", "firefox", "opera"]):
-                                        user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
-                                        user32.keybd_event(0x12, 0, 0, 0)  # Alt down
-                                        user32.keybd_event(0x12, 0, 2, 0)  # Alt up
-                                        user32.SetForegroundWindow(hwnd)
-                                        return False
-                            return True
-                        user32.EnumWindows(WNDENUMPROC(_enum_cb), 0)
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        import pygetwindow as gw
-                        for win in gw.getAllWindows():
-                            t = win.title.lower()
-                            if any(k in t for k in ["whatsapp", "chrome", "edge", "brave"]):
-                                win.activate()
-                                break
-                    except Exception:
-                        pass
-
-            # Import automation tools
-            import pyautogui
-            pyautogui.FAILSAFE = False
-            screen_w, screen_h = pyautogui.size()
-
-            # Phased automatic send:
-            # WhatsApp Web requires 8-15 seconds to connect and populate the chat.
-            # We attempt multi-round automated dispatches so whether connection is fast or slow,
-            # the message is guaranteed to send without requiring human click.
-            print("[DriverMonitoringService] Waiting for WhatsApp Web to load conversation...")
-            time.sleep(10)
-
-            for attempt in range(1, 4):
-                print(f"[DriverMonitoringService] Automatic send attempt {attempt}/3...")
-                _force_browser_foreground()
-                time.sleep(0.5)
-
-                # 1. Click center to ensure active window input focus
-                pyautogui.click(screen_w // 2, screen_h // 2)
-                time.sleep(0.3)
-
-                # 2. Click message text input bar (bottom-center area) to ensure cursor is inside the box
-                input_x = int(screen_w * 0.65)
-                input_y = screen_h - 55
-                pyautogui.click(input_x, input_y)
-                time.sleep(0.3)
-
-                # 3. Press Enter key
-                pyautogui.press("enter")
-                time.sleep(0.3)
-
-                # 4. In case WhatsApp uses multiline or requires Ctrl+Enter
-                pyautogui.hotkey("ctrl", "enter")
-                time.sleep(0.3)
-
-                # 5. Direct click on WhatsApp Web's Send button (green paper-airplane icon at bottom right)
-                send_button_x = screen_w - 55
-                send_button_y = screen_h - 55
-                pyautogui.click(send_button_x, send_button_y)
-                time.sleep(0.2)
-                pyautogui.press("enter")
-
-                # If this wasn't the last attempt, wait briefly before next pulse
-                if attempt < 3:
-                    time.sleep(3.5)
-
-            print("[DriverMonitoringService] WhatsApp emergency alert automatically sent!")
-        except Exception as e:
-            print(f"[DriverMonitoringService] Note on WhatsApp dispatch: {e}")
+        emergency_alert_service.trigger_alert_if_unresponsive()
 
     def start(self):
         """Starts live camera capture and monitoring thread."""
@@ -498,6 +366,7 @@ class DriverMonitoringService:
                     self._stop_alarm()
                     self.emergency_triggered = False
                     self.whatsapp_sent_for_session = False
+                    emergency_alert_service.reset_session()
                     self.eye_counter = 0
                     self.yawn_counter = 0
                     self.head_abnormal_start = None
@@ -510,10 +379,7 @@ class DriverMonitoringService:
                         "NAVIGATING_TO_HOSPITAL"
                     ]:
                         self.whatsapp_sent_for_session = True
-                        threading.Thread(
-                            target=self._send_whatsapp_alert_when_unresponsive,
-                            daemon=True
-                        ).start()
+                        emergency_alert_service.trigger_alert_if_unresponsive()
 
                 # Process face landmarks
                 landmarks = self._process_frame_landmarks(frame_rgb, width, height)

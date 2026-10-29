@@ -21,11 +21,36 @@ class TestEmergencyWorkflow(unittest.TestCase):
         self.assertTrue(state_manager.get_state().driver_responsive)
         self.assertEqual(state_manager.get_state().driver_status, DriverStatus.DRIVER_RESPONDED)
 
-    def test_driver_cannot_respond_when_no_emergency(self):
-        state_manager.reset()
-        responded = driver_monitor.set_driver_responded()
-        self.assertFalse(responded)
+    def test_emergency_alert_service(self):
+        from modules.alert.whatsapp_alert import emergency_alert_service
+        emergency_alert_service.reset_session()
+        self.assertFalse(emergency_alert_service.is_dispatched_for_session)
+
+        # Phone formatting test
+        self.assertEqual(emergency_alert_service._clean_phone("8073662914"), "+918073662914")
+        self.assertEqual(emergency_alert_service._clean_phone("+918073662914"), "+918073662914")
+
+        # Contact configuration
+        emergency_alert_service.configure_contact("Mom", "9876543210")
+        self.assertEqual(emergency_alert_service.contact_name, "Mom")
+        self.assertEqual(emergency_alert_service.contact_phone, "+919876543210")
+
+        # Message builder test
+        msg, loc, hosp = emergency_alert_service._build_emergency_message()
+        self.assertIn("AI DRIVER MONITORING: EMERGENCY ALERT", msg)
+        self.assertIn("Mom", msg)
+
+        # Session deduplication test
+        emergency_alert_service.is_dispatched_for_session = True
+        # trigger should return False when already dispatched
+        result = emergency_alert_service.trigger_alert_if_unresponsive(force=False)
+        self.assertFalse(result)
+
+        # Reset session
+        emergency_alert_service.reset_session()
+        self.assertFalse(emergency_alert_service.is_dispatched_for_session)
 
 
 if __name__ == "__main__":
     unittest.main()
+

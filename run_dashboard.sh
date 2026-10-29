@@ -79,6 +79,10 @@ if command -v xdg-open &>/dev/null; then
     xdg-open "http://localhost:5173" &>/dev/null &
 elif command -v open &>/dev/null; then           # macOS
     open "http://localhost:5173"
+elif command -v start &>/dev/null; then          # Windows Git Bash
+    start "http://localhost:5173"
+elif command -v cmd.exe &>/dev/null; then        # Windows fallback
+    cmd.exe /c start "http://localhost:5173"
 fi
 
 echo ""

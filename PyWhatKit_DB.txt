@@ -13,3 +13,13 @@ Time: 11:44
 Phone Number: +918073662914
 Message: 🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety prompt.The vehicle has safely stopped and initiated Autonomous Emergency Mode.📍 *Live Vehicle GPS Location:*https://maps.google.com/?q=12.971820,77.597923🗺️ Coordinates: `12.971820, 77.597923`🏥 *Destination Hospital:* Nearest Emergency Medical Center🛣️ *Distance to Hospital:* Calculating...⏱️ *Estimated ETA:* Pending📞 *Emergency Contact:* mommyPlease call the driver or dispatch emergency personnel immediately!
 --------------------
+Date: 29/10/2026
+Time: 23:17
+Phone Number: +918073662914
+Message: 🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety countdown.The vehicle has safely stopped and activated Autonomous Emergency Mode.📍 *Live Vehicle Location:*https://maps.google.com/?q=12.971820,77.602715🗺️ Coordinates: `12.971820, 77.602715`🏥 *Destination Hospital:* Nearest Emergency Medical Center🛣️ *Distance to Hospital:* Calculating...⏱️ *Estimated ETA:* Pending📞 *Designated Contact:* Emergency ContactPlease call the driver or dispatch emergency services immediately!
+--------------------
+Date: 29/10/2026
+Time: 23:18
+Phone Number: +918073662914
+Message: 🚨 *AI DRIVER MONITORING: EMERGENCY ALERT* 🚨⚠️ *CRITICAL:* The driver was unresponsive and *DID NOT RESPOND* to the safety countdown.The vehicle has safely stopped and activated Autonomous Emergency Mode.📍 *Live Vehicle Location:*https://maps.google.com/?q=12.971820,77.594195🗺️ Coordinates: `12.971820, 77.594195`🏥 *Destination Hospital:* Vydehi Superspeciality Hospital🛣️ *Distance to Hospital:* 0.42 km⏱️ *Estimated ETA:* 1.3 mins📞 *Designated Contact:* Emergency ContactPlease call the driver or dispatch emergency services immediately!
+--------------------

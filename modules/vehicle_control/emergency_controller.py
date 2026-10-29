@@ -39,6 +39,11 @@ class EmergencyController:
         self.stop_event.set()
         if self.emergency_thread and self.emergency_thread.is_alive():
             self.emergency_thread.join(timeout=1.0)
+        try:
+            from modules.alert.whatsapp_alert import emergency_alert_service
+            emergency_alert_service.reset_session()
+        except Exception:
+            pass
 
     def _run_emergency_sequence(self, response_time: int):
         logger.info(f"Emergency sequence initiated with {response_time}s response window.")
@@ -164,6 +169,11 @@ class EmergencyController:
             logger.info(f"Hospital found: {hospital.name} ({hospital.distance_km} km)")
         else:
             state_manager.update_state(navigation_status="HOSPITAL_SEARCH_FAILED")
+            try:
+                from modules.alert.whatsapp_alert import emergency_alert_service
+                emergency_alert_service.trigger_alert_if_unresponsive()
+            except Exception:
+                pass
             return
 
         # 2. Route Planning
@@ -191,6 +201,13 @@ class EmergencyController:
             carla_lookahead_controller.generate_carla_road_waypoints(carla_wrapper.world, route.coordinates)
 
         logger.info(f"Navigation started with {len(waypoints)} route waypoints.")
+
+        # Dispatch Autonomous WhatsApp Emergency Alert to designated contact
+        try:
+            from modules.alert.whatsapp_alert import emergency_alert_service
+            emergency_alert_service.trigger_alert_if_unresponsive()
+        except Exception as e:
+            logger.error(f"Error triggering emergency alert: {e}")
 
 
 emergency_controller = EmergencyController()

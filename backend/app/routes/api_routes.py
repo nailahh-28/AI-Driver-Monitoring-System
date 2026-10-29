@@ -16,6 +16,7 @@ from modules.simulation.simulation_engine import simulation_engine
 from carla.carla_client_wrapper import carla_wrapper
 from ai_worker.worker import ai_worker
 from camera_monitoring_service import monitoring_service
+from modules.alert.whatsapp_alert import emergency_alert_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["API"])
@@ -143,7 +144,41 @@ def driver_respond():
             "message": "Driver response rejected (no active response window or window expired)."
         }
     emergency_controller.stop_emergency()
+    emergency_alert_service.reset_session()
     return {"status": "SUCCESS", "message": "Driver responded. Emergency cancelled."}
+
+
+@router.post("/emergency/send-alert")
+def trigger_emergency_alert(force: bool = False):
+    """Explicitly dispatches the WhatsApp emergency alert with live telemetry."""
+    triggered = emergency_alert_service.trigger_alert_if_unresponsive(force=force)
+    return {
+        "status": "SUCCESS" if triggered else "SKIPPED",
+        "message": "Emergency alert dispatched autonomously." if triggered else "Alert already sent for this session.",
+        "contact": emergency_alert_service.contact_name,
+        "phone": emergency_alert_service.contact_phone
+    }
+
+
+@router.get("/emergency/contact")
+def get_emergency_contact():
+    """Returns current designated emergency contact details."""
+    return {
+        "contact_name": emergency_alert_service.contact_name,
+        "contact_phone": emergency_alert_service.contact_phone
+    }
+
+
+@router.post("/emergency/contact")
+def update_emergency_contact(contact_name: str, contact_phone: str):
+    """Configures designated emergency contact recipient."""
+    emergency_alert_service.configure_contact(contact_name, contact_phone)
+    monitoring_service.configure_contact(contact_name, contact_phone)
+    return {
+        "status": "SUCCESS",
+        "contact_name": emergency_alert_service.contact_name,
+        "contact_phone": emergency_alert_service.contact_phone
+    }
 
 
 @router.post("/simulation/start")
@@ -206,6 +241,7 @@ def start_simulation(req: SimulationStartRequest = SimulationStartRequest()):
 def reset_simulation():
     """Resets system state, stops emergency threads, cleans up CARLA actors."""
     emergency_controller.stop_emergency()
+    emergency_alert_service.reset_session()
     carla_wrapper.cleanup()
     state_manager.reset()
     simulation_engine.start()
