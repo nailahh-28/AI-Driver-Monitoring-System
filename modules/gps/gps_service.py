@@ -49,3 +49,6 @@ class GpsService:
 
 
 gps_service = GpsService()
+
+# Backward compatibility alias
+GPSService = GpsService

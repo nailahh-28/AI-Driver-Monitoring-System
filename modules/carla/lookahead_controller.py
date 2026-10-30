@@ -1,6 +1,6 @@
 import math
 import logging
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any
 from backend.app.config import (
     NAV_LOOKAHEAD_MIN, NAV_LOOKAHEAD_MAX, NAV_WAYPOINT_RADIUS, NAV_MAX_SPEED_KMH
 )

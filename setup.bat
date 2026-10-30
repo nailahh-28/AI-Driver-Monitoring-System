@@ -12,6 +12,9 @@ echo  AI Driver Monitoring System — Setup (Windows)
 echo ============================================================
 echo.
 
+REM ── Ensure Node and Python are in PATH ──────────────────────
+set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
+
 REM ── Check Python ────────────────────────────────────────────
 python --version >nul 2>&1
 if errorlevel 1 (
@@ -58,11 +61,11 @@ echo [OK] Python dependencies installed.
 
 REM ── Install frontend Node.js dependencies ───────────────────
 echo.
-echo [STEP] Installing frontend dependencies (npm install)...
+echo [STEP] Installing frontend dependencies (call npm install)...
 cd frontend
-npm install
+call npm install
 if errorlevel 1 (
-    echo [ERROR] npm install failed.
+    echo [ERROR] call npm install failed.
     cd ..
     exit /b 1
 )
@@ -70,8 +73,8 @@ echo [OK] Frontend dependencies installed.
 
 REM ── Build frontend ───────────────────────────────────────────
 echo.
-echo [STEP] Building frontend (npm run build)...
-npm run build
+echo [STEP] Building frontend (call npm run build)...
+call npm run build
 if errorlevel 1 (
     echo [ERROR] Frontend build failed.
     cd ..
@@ -83,6 +86,7 @@ echo [OK] Frontend built successfully.
 REM ── Verify core modules import cleanly ──────────────────────
 echo.
 echo [STEP] Verifying core Python module imports...
+call .venv\Scripts\activate.bat
 python -c "from backend.app.models.schemas import DriverStatus; from backend.app.services.state_manager import state_manager; print('[OK] Core modules verified.')"
 if errorlevel 1 (
     echo [ERROR] Core module verification failed. Check your Python path.
@@ -96,3 +100,5 @@ echo  Run the dashboard with:  run_dashboard.bat
 echo ============================================================
 echo.
 endlocal
+
+

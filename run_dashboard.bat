@@ -13,6 +13,9 @@ echo  AI Driver Monitoring System — Starting Dashboard
 echo ============================================================
 echo.
 
+REM ── Ensure Node and Python are in PATH ──────────────────────
+set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
+
 REM ── Check venv exists ────────────────────────────────────────
 if not exist ".venv\Scripts\activate.bat" (
     echo [ERROR] Virtual environment not found.
@@ -36,7 +39,7 @@ timeout /t 3 /nobreak >nul
 
 REM ── Start Vite frontend dev server in a new window ───────────
 echo [STEP] Starting Vite frontend on http://localhost:5173 ...
-start "AI-Driver-Frontend" cmd /k "cd frontend && npm run dev"
+start "AI-Driver-Frontend" cmd /k "set PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH% && cd frontend && npm.cmd run dev"
 
 REM ── Wait for frontend to spin up ─────────────────────────────
 timeout /t 4 /nobreak >nul
