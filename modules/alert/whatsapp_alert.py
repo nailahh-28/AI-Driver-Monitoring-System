@@ -243,15 +243,9 @@ class EmergencyAlertService:
 
     def _locate_send_button_autonomously(self) -> Optional[Tuple[int, int]]:
         """
-        AUTONOMOUS COMPUTER VISION DETECTION of WhatsApp Web's Send Button.
-        
-        Does NOT assume or hardcode screen coordinates.
-        Uses OpenCV color & contour analysis to locate the distinctive
-        WhatsApp green Send button badge (#25D366 / #00A884) in the chat
-        input zone dynamically on the user's actual display.
-        
-        Returns:
-            (x, y) coordinates of the button centroid if found, else None.
+        Locates WhatsApp Web's Send Button dynamically.
+        Checks for green/teal badges, circular button contours in the chat action zone,
+        or falls back to resolution-calibrated coordinates.
         """
         try:
             import pyautogui
@@ -263,50 +257,56 @@ class EmergencyAlertService:
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             h, w = frame_bgr.shape[:2]
 
-            # In WhatsApp Web, the Send button is in the lower region of the window
-            roi_y_start = int(h * 0.75)
-            roi = frame_bgr[roi_y_start:h, 0:w]
+            # In WhatsApp Web, the Send button is in the bottom right region
+            roi_y_start = int(h * 0.78)
+            roi_x_start = int(w * 0.70)
+            roi = frame_bgr[roi_y_start:h, roi_x_start:w]
 
-            # Convert ROI to HSV
+            # 1. Color check for WhatsApp green / teal (#00A884 / #25D366)
             hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-
-            # WhatsApp Green Color range (#25D366 and dark mode #00A884)
-            lower_green = np.array([35, 70, 70])
-            upper_green = np.array([85, 255, 255])
+            lower_green = np.array([30, 40, 40])
+            upper_green = np.array([95, 255, 255])
             mask = cv2.inRange(hsv, lower_green, upper_green)
 
-            # Morphological cleanup
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            mask = cv2.dilate(mask, kernel, iterations=1)
-
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if 50 < area < 5000:
+                    (cx, cy), radius = cv2.minEnclosingCircle(cnt)
+                    bx, by = roi_x_start + int(cx), roi_y_start + int(cy)
+                    safe_log(logging.INFO, f"[EmergencyAlert] Located green Send button at ({bx}, {by})")
+                    return (bx, by)
+
+            # 2. Contour check for circular Send button in bottom-right zone
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(gray, 50, 150)
+            edges = cv2.dilate(edges, kernel, iterations=1)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             candidates = []
             for cnt in contours:
                 area = cv2.contourArea(cnt)
-                # Circular Send button radius is ~12-30px, area ~80 to 4000px^2
-                if 80 < area < 4000:
-                    perimeter = cv2.arcLength(cnt, True)
-                    if perimeter > 0:
-                        circularity = 4 * np.pi * (area / (perimeter * perimeter))
-                        if circularity > 0.40:
-                            (cx, cy), radius = cv2.minEnclosingCircle(cnt)
-                            global_x = int(cx)
-                            global_y = roi_y_start + int(cy)
-                            candidates.append((global_x, global_y, area, global_x))
+                if 80 < area < 4500:
+                    (cx, cy), _ = cv2.minEnclosingCircle(cnt)
+                    candidates.append((roi_x_start + int(cx), roi_y_start + int(cy)))
 
             if candidates:
-                # Select candidate furthest to the right (the Send button)
-                candidates.sort(key=lambda item: item[3], reverse=True)
-                target_x, target_y = candidates[0][0], candidates[0][1]
-                safe_log(logging.INFO, f"[EmergencyAlert] Visually located WhatsApp Send button at ({target_x}, {target_y}) via Computer Vision!")
-                return (target_x, target_y)
+                candidates.sort(key=lambda pt: pt[0], reverse=True)
+                return candidates[0]
 
         except Exception as e:
             safe_log(logging.DEBUG, f"Computer vision button locator note: {e}")
 
-        return None
+        # Calibrated default coordinates on user's actual screen resolution
+        try:
+            import pyautogui
+            w, h = pyautogui.size()
+            return (w - 60, h - 85)
+        except Exception:
+            return None
 
     def _execute_dispatch_workflow(self):
         """Full end-to-end autonomous dispatch workflow."""
@@ -338,22 +338,7 @@ class EmergencyAlertService:
                 except Exception as e:
                     safe_log(logging.WARNING, f"CallMeBot API notice: {e}")
 
-            # 2. Automated pywhatkit dispatch (Primary browser-automation dispatch)
-            try:
-                import pywhatkit as kit
-                safe_print(f"[EmergencyAlert] Dispatching WhatsApp alert via pywhatkit to {formatted_phone}...")
-                kit.sendwhatmsg_instantly(
-                    phone_no=formatted_phone,
-                    message=message,
-                    wait_time=15,
-                    tab_close=False
-                )
-                safe_print("[EmergencyAlert] SUCCESS: WhatsApp emergency alert sent automatically via pywhatkit!")
-                return
-            except Exception as kit_err:
-                safe_print(f"[EmergencyAlert] pywhatkit notice ({kit_err}). Engaging multi-tier fallback...")
-
-            # 3. Multi-tier Fallback: Clipboard backup + WhatsApp Web direct launch
+            # 2. Clipboard backup
             try:
                 import pyperclip
                 pyperclip.copy(message)
@@ -361,6 +346,7 @@ class EmergencyAlertService:
             except Exception as e:
                 safe_log(logging.WARNING, f"pyperclip notice: {e}")
 
+            # 3. WhatsApp Web direct launch
             whatsapp_web_url = f"https://web.whatsapp.com/send?phone={clean_phone}&text={encoded_msg}"
             safe_print(f"[EmergencyAlert] Opening WhatsApp Web: {whatsapp_web_url}")
 
@@ -368,49 +354,49 @@ class EmergencyAlertService:
             if not opened:
                 safe_print("[EmergencyAlert] Warning: Could not automatically launch browser.")
 
-            # 4. Autonomous multi-pulse dispatch (Computer Vision Send Button / Enter hotkey)
             import pyautogui
             pyautogui.FAILSAFE = False
             screen_w, screen_h = pyautogui.size()
 
+            # WhatsApp Web typically takes ~10-15s to establish socket & render the chat
             safe_print("[EmergencyAlert] Waiting for WhatsApp Web to load conversation...")
-            time.sleep(7.0)
+            time.sleep(10.0)
 
-            for attempt in range(1, 5):
-                safe_print(f"[EmergencyAlert] Autonomous send verification pulse ({attempt}/4)...")
+            composer_x = int(screen_w * 0.60)
+            composer_y = screen_h - 85
+            send_btn_x = screen_w - 60
+            send_btn_y = screen_h - 85
+
+            for attempt in range(1, 11):
+                safe_print(f"[EmergencyAlert] Autonomous send verification pulse ({attempt}/10)...")
                 self._bring_whatsapp_to_foreground()
-                time.sleep(0.6)
+                time.sleep(0.3)
 
-                btn_coords = self._locate_send_button_autonomously()
+                # 1. Click directly inside composer to guarantee keyboard focus
+                pyautogui.click(composer_x, composer_y)
+                time.sleep(0.2)
 
-                if not btn_coords:
-                    safe_print("[EmergencyAlert] Pasting message directly into chat composer via Clipboard...")
-                    composer_click_y = screen_h - 70
-                    composer_click_x = int(screen_w * 0.55)
-                    pyautogui.click(composer_click_x, composer_click_y)
-                    time.sleep(0.3)
-                    pyautogui.hotkey("ctrl", "v")
-                    time.sleep(0.5)
-
-                    btn_coords = self._locate_send_button_autonomously()
-
-                if btn_coords:
-                    bx, by = btn_coords
-                    safe_print(f"[EmergencyAlert] Computer Vision found Send button at ({bx}, {by}). Clicking...")
-                    pyautogui.click(bx, by)
-                    time.sleep(0.3)
-                    pyautogui.press("enter")
-                    safe_print("[EmergencyAlert] SUCCESS: WhatsApp emergency alert sent via detected Send button!")
-                    return
-
-                safe_print("[EmergencyAlert] Sending Enter keystroke to message composer...")
+                # 2. Press Enter to send
                 pyautogui.press("enter")
-                time.sleep(0.3)
+                time.sleep(0.15)
                 pyautogui.hotkey("ctrl", "enter")
-                time.sleep(0.3)
+                time.sleep(0.15)
 
-                if attempt < 4:
-                    time.sleep(3.5)
+                # 3. Locate & click Send button directly
+                btn_coords = self._locate_send_button_autonomously() or (send_btn_x, send_btn_y)
+                bx, by = btn_coords
+                pyautogui.click(bx, by)
+                time.sleep(0.15)
+                # Click adjacent offsets for touch / high-DPI scaling tolerance
+                pyautogui.click(bx - 5, by)
+                time.sleep(0.15)
+                pyautogui.click(bx, by - 5)
+
+                # 4. Press Enter again after clicking Send
+                pyautogui.press("enter")
+
+                if attempt < 10:
+                    time.sleep(2.5)
 
             safe_print("[EmergencyAlert] Autonomous alert sequence completed.")
 
